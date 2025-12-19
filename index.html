@@ -1,1 +1,426 @@
-<iframe src="https://claude.site/public/artifacts/53fa8a00-03dd-4e79-9ffc-7b9594b83601/embed" title="Claude Artifact" width="100%" height="600" frameborder="0" allow="clipboard-write" allowfullscreen></iframe>
+import { useState } from 'react';
+import { Sparkles, Zap, Lock, Crown, Check, ArrowRight, RefreshCw } from 'lucide-react';
+
+export default function PromptEngineeringPlatform() {
+  const [userInput, setUserInput] = useState('');
+  const [selectedTechnique, setSelectedTechnique] = useState('chain-of-thought');
+  const [generatedPrompt, setGeneratedPrompt] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [promptsUsed, setPromptsUsed] = useState(0);
+  const [subscriptionTier, setSubscriptionTier] = useState('free'); // 'free', 'pro', 'enterprise'
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const FREE_LIMIT = 5;
+
+  const techniques = [
+    { 
+      value: 'chain-of-thought', 
+      label: 'Chain of Thought', 
+      description: 'Step-by-step reasoning',
+      free: true 
+    },
+    { 
+      value: 'few-shot', 
+      label: 'Few-Shot Learning', 
+      description: 'Learn from examples',
+      free: true 
+    },
+    { 
+      value: 'role-based', 
+      label: 'Role-Based', 
+      description: 'Assign expert personas',
+      free: true 
+    },
+    { 
+      value: 'zero-shot-cot', 
+      label: 'Zero-Shot CoT', 
+      description: 'Advanced reasoning',
+      free: false 
+    },
+    { 
+      value: 'tree-of-thought', 
+      label: 'Tree of Thoughts', 
+      description: 'Multi-path exploration',
+      free: false 
+    },
+    { 
+      value: 'self-consistency', 
+      label: 'Self-Consistency', 
+      description: 'Multiple reasoning paths',
+      free: false 
+    }
+  ];
+
+  const generatePrompt = async () => {
+    if (!userInput.trim()) return;
+
+    // Check if technique is locked
+    const technique = techniques.find(t => t.value === selectedTechnique);
+    if (!technique.free && subscriptionTier === 'free') {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    // Check free tier limit
+    if (subscriptionTier === 'free' && promptsUsed >= FREE_LIMIT) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const systemPrompt = getSystemPromptForTechnique(selectedTechnique);
+      
+      const prompt = `${systemPrompt}
+
+User's goal: ${userInput}
+
+Create an optimized AI prompt that will help the user achieve their goal effectively. Return ONLY the engineered prompt, without any explanations or additional text.`;
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [
+            { role: "user", content: prompt }
+          ],
+        })
+      });
+
+      const data = await response.json();
+      const promptText = data.content[0].text;
+      
+      setGeneratedPrompt(promptText);
+      setPromptsUsed(prev => prev + 1);
+    } catch (error) {
+      console.error('Error generating prompt:', error);
+      setGeneratedPrompt('Sorry, there was an error generating your prompt. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getSystemPromptForTechnique = (technique) => {
+    const prompts = {
+      'chain-of-thought': 'You are an expert prompt engineer. Create a prompt that encourages step-by-step reasoning using chain-of-thought methodology. Include phrases like "Let\'s think step by step" or "Break this down into steps".',
+      'few-shot': 'You are an expert prompt engineer. Create a prompt that includes 2-3 relevant examples (few-shot learning) to guide the AI toward the desired output format and style.',
+      'role-based': 'You are an expert prompt engineer. Create a prompt that assigns a specific expert role or persona to the AI (e.g., "You are an experienced data scientist" or "Act as a marketing strategist").',
+      'zero-shot-cot': 'You are an expert prompt engineer. Create an advanced prompt using zero-shot chain-of-thought, which encourages reasoning without examples. Use meta-prompting techniques.',
+      'tree-of-thought': 'You are an expert prompt engineer. Create a sophisticated prompt using tree-of-thoughts methodology, encouraging the AI to explore multiple reasoning paths and evaluate different approaches.',
+      'self-consistency': 'You are an expert prompt engineer. Create an advanced prompt that asks the AI to generate multiple reasoning paths and synthesize the most consistent answer across approaches.'
+    };
+    return prompts[technique];
+  };
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(generatedPrompt);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-indigo-50">
+      {/* Header */}
+      <div className="relative overflow-hidden border-b border-purple-100">
+        <div className="absolute inset-0 bg-gradient-to-r from-violet-600/5 to-purple-600/5"></div>
+        <div className="relative max-w-7xl mx-auto px-6 py-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-r from-violet-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Sparkles className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-violet-900 to-purple-900 bg-clip-text text-transparent">
+                  PromptCraft AI
+                </h1>
+                <p className="text-sm text-slate-600">Professional Prompt Engineering</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              {subscriptionTier === 'free' && (
+                <div className="bg-white/70 backdrop-blur-sm rounded-lg px-4 py-2 border border-purple-200">
+                  <p className="text-sm font-medium text-slate-700">
+                    {promptsUsed}/{FREE_LIMIT} Free Prompts Used
+                  </p>
+                </div>
+              )}
+              {subscriptionTier === 'free' ? (
+                <button
+                  onClick={() => setShowUpgradeModal(true)}
+                  className="bg-gradient-to-r from-violet-600 to-purple-600 text-white px-6 py-2.5 rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 flex items-center gap-2"
+                >
+                  <Crown className="w-4 h-4" />
+                  Upgrade to Pro
+                </button>
+              ) : (
+                <div className="bg-gradient-to-r from-amber-400 to-orange-400 text-white px-6 py-2.5 rounded-lg font-semibold shadow-lg flex items-center gap-2">
+                  <Crown className="w-4 h-4" />
+                  {subscriptionTier === 'pro' ? 'Pro Member' : 'Enterprise'}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="grid lg:grid-cols-2 gap-8">
+          
+          {/* Input Section */}
+          <div className="space-y-6">
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-white/20">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-violet-600" />
+                </div>
+                <h2 className="text-2xl font-semibold text-slate-800">Your Goal</h2>
+              </div>
+              
+              <textarea
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                placeholder="Describe what you want to achieve with AI... 
+
+Example: 'Help me write engaging product descriptions for my e-commerce store' or 'Analyze customer feedback and identify key themes'"
+                className="w-full h-48 p-4 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all duration-200 bg-white/50 backdrop-blur-sm text-slate-700 placeholder-slate-400"
+              />
+            </div>
+
+            {/* Technique Selection */}
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-white/20">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <RefreshCw className="w-5 h-5 text-purple-600" />
+                </div>
+                <h2 className="text-2xl font-semibold text-slate-800">Technique</h2>
+              </div>
+              
+              <div className="grid gap-3">
+                {techniques.map((technique) => {
+                  const isLocked = !technique.free && subscriptionTier === 'free';
+                  return (
+                    <button
+                      key={technique.value}
+                      onClick={() => {
+                        if (isLocked) {
+                          setShowUpgradeModal(true);
+                        } else {
+                          setSelectedTechnique(technique.value);
+                        }
+                      }}
+                      className={`p-4 rounded-xl border-2 transition-all duration-200 text-left relative ${
+                        selectedTechnique === technique.value && !isLocked
+                          ? 'border-violet-500 bg-violet-50 shadow-md'
+                          : 'border-slate-200 bg-white/50 hover:border-slate-300 hover:bg-white/70'
+                      } ${isLocked ? 'opacity-60' : ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-semibold text-slate-800 flex items-center gap-2">
+                            {technique.label}
+                            {isLocked && <Lock className="w-4 h-4 text-amber-500" />}
+                          </div>
+                          <div className="text-sm text-slate-600 mt-1">{technique.description}</div>
+                        </div>
+                        {!technique.free && (
+                          <Crown className="w-5 h-5 text-amber-500" />
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Generate Button */}
+            <button
+              onClick={generatePrompt}
+              disabled={isLoading || !userInput.trim() || (subscriptionTier === 'free' && promptsUsed >= FREE_LIMIT)}
+              className="w-full bg-gradient-to-r from-violet-600 to-purple-600 text-white py-4 px-8 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5" />
+                  Generate Optimized Prompt
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Output Section */}
+          <div className="space-y-6">
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 shadow-xl border border-white/20 min-h-96">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h2 className="text-2xl font-semibold text-slate-800">Engineered Prompt</h2>
+                </div>
+                
+                {generatedPrompt && (
+                  <button
+                    onClick={copyToClipboard}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors text-slate-700 font-medium"
+                  >
+                    Copy
+                  </button>
+                )}
+              </div>
+              
+              {generatedPrompt ? (
+                <div className="bg-white/80 rounded-xl p-6 border border-slate-200">
+                  <pre className="whitespace-pre-wrap font-mono text-sm text-slate-700 leading-relaxed">
+                    {generatedPrompt}
+                  </pre>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-64 text-slate-400">
+                  <Sparkles className="w-16 h-16 mb-4 opacity-50" />
+                  <p className="text-lg">Your optimized prompt will appear here</p>
+                  <p className="text-sm mt-2">Describe your goal and select a technique</p>
+                </div>
+              )}
+            </div>
+
+            {/* Pricing Cards */}
+            <div className="grid gap-4">
+              <div className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-6 border border-slate-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-lg">Free Trial</h3>
+                    <p className="text-sm text-slate-600">Try before you commit</p>
+                  </div>
+                  <div className="text-2xl font-bold text-slate-800">$0</div>
+                </div>
+                <ul className="space-y-2 text-sm text-slate-600">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600" />
+                    5 prompt generations
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600" />
+                    3 basic techniques
+                  </li>
+                </ul>
+              </div>
+
+              <div className="bg-gradient-to-r from-violet-500 to-purple-600 rounded-xl p-6 border-2 border-violet-300 shadow-lg relative">
+                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-amber-400 text-amber-900 px-4 py-1 rounded-full text-xs font-bold shadow-md">
+                  LIMITED TIME OFFER
+                </div>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                      <Crown className="w-5 h-5" />
+                      Pro Plan
+                    </h3>
+                    <p className="text-sm text-violet-100">For professionals</p>
+                  </div>
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <div className="text-lg text-violet-200 line-through">$29</div>
+                      <div className="text-2xl font-bold text-white">$9</div>
+                    </div>
+                    <div className="text-xs text-violet-100">/month • Early adopter price</div>
+                  </div>
+                </div>
+                <ul className="space-y-2 text-sm text-white mb-4">
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Unlimited prompts
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    All 6 techniques
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Priority support
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    Prompt history
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="w-4 h-4" />
+                    🔒 Lock in $9/mo forever
+                  </li>
+                </ul>
+                {subscriptionTier === 'free' && (
+                  <button
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="w-full bg-white text-violet-600 py-2.5 rounded-lg font-semibold hover:bg-violet-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    Upgrade Now
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-r from-violet-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Crown className="w-8 h-8 text-white" />
+              </div>
+              <div className="inline-block bg-amber-400 text-amber-900 px-3 py-1 rounded-full text-xs font-bold mb-3">
+                🔥 LIMITED TIME OFFER
+              </div>
+              <h3 className="text-2xl font-bold text-slate-800 mb-2">Upgrade to Pro</h3>
+              <p className="text-slate-600">Early adopter pricing - Lock in $9/mo forever</p>
+            </div>
+            
+            <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl p-6 mb-6">
+              <div className="text-center mb-4">
+                <div className="flex items-center justify-center gap-3 mb-1">
+                  <div className="text-2xl font-semibold text-slate-400 line-through">$29</div>
+                  <div className="text-4xl font-bold text-slate-800">$9</div>
+                </div>
+                <div className="text-sm text-slate-600">per month</div>
+                <div className="text-xs text-amber-600 font-semibold mt-1">Price increases to $19 on Jan 1st, then $29 on Feb 1st</div>
+              </div>
+              <ul className="space-y-3 text-sm text-slate-700">
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  <span>Unlimited prompt generations</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  <span>Access to all 6 advanced techniques</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  <span>Priority customer support</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-green-600 flex-shrink-0" />
+                  <span>Prompt history and templates</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <Check className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                  <span className="font-semibold text-amber-700">🔒 Your rate locked at $9/mo forever</span>
+                </li>
+              </ul>
+            </div>
+            
+            <div className="
